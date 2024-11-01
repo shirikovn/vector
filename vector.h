@@ -31,12 +31,9 @@ public:
 
     // Ctors
 
-    vector() : size_(0), capacity_(0), data_(traits_t::allocate(alloc, 0)) {
-    }
+    explicit vector(const Allocator& allocator = Allocator()) : size_(0), capacity_(0), data_(nullptr), alloc(allocator) {}
 
-    explicit vector(const Allocator& alloc) : alloc(alloc) {}
-
-    vector(size_type size, const T& value = T(), const Allocator& allocator = Allocator()) : size_(size), alloc(allocator), data_(traits_t::allocate(alloc, 0)) {
+    vector(size_type size, const T& value = T(), const Allocator& allocator = Allocator()) : size_(size), capacity_(0), data_(nullptr), alloc(allocator) {
         ResizeArray(size);
 
         for (size_type i = 0; i < size; ++i) {
@@ -133,7 +130,6 @@ public:
         }
 
         traits_t::deallocate(alloc, data_, capacity_);
-        data_ = nullptr;
     }
 
     // Element access
@@ -270,14 +266,18 @@ public:
     }
 
     iterator insert(iterator pos, const T& value) {
+        const difference_type diff = pos - begin();
+
         if (pos == end()) {
             push_back(value);
+            pos = begin() + diff;
             return pos;
         }
 
-        iterator curr_end = end();
-
         ExpandIfNeed();
+
+        pos = begin() + diff;
+        iterator curr_end = begin() + size_;
 
         if (pos < begin() || pos > curr_end) {
             throw std::out_of_range("Invalid insert pos");
@@ -295,19 +295,23 @@ public:
     }
 
     iterator insert(iterator pos, T&& value) {
+        const difference_type diff = pos - begin();
+
         if (pos == end()) {
             push_back(std::move(value));
-            return pos;
+            return begin() + diff;
         }
-        iterator curr_end = end();
-
+        
         ExpandIfNeed();
 
-        if (pos < begin() || pos > curr_end) {
+        pos = begin() + diff;
+        iterator curr_end = end();
+
+        if (pos < begin() || pos > end()) {
             throw std::out_of_range("Invalid insert pos");
         }
 
-        traits_t::construct(alloc, curr_end, *(curr_end - 1));
+        traits_t::construct(alloc, curr_end, std::move(*(curr_end - 1)));
         for (iterator it = curr_end - 1; it != pos; --it) {
             *it = std::move(*(it - 1));
         }
@@ -320,20 +324,23 @@ public:
 
     template< class... Args >
     iterator emplace(iterator pos, Args&&... args) {
+        const difference_type diff = pos - begin();
+
         if (pos == end()) {
             emplace_back(std::forward<Args>(args)...);
-            return pos;
+            return begin() + diff;
         }
-    
-        iterator curr_end = end();
 
         ExpandIfNeed();
+
+        pos = begin() + diff;
+        iterator curr_end = begin() + size_;
 
         if (pos < begin() || pos > curr_end) {
             throw std::out_of_range("Invalid insert pos");
         }
 
-        traits_t::construct(alloc, curr_end, *(curr_end - 1));
+        traits_t::construct(alloc, curr_end, std::move(*(curr_end - 1)));
         for (iterator it = curr_end - 1; it != pos; --it) {
             *it = std::move(*(it - 1));
         }
@@ -427,8 +434,10 @@ private:
                 traits_t::destroy(alloc, data_ + i);
             }
         }
-
-        traits_t::deallocate(alloc, data_, capacity_);
+        
+        if (data_ != nullptr) {
+            traits_t::deallocate(alloc, data_, capacity_);
+        }
         
         capacity_ = new_cap;
         data_ = new_data;
