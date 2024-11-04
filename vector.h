@@ -33,9 +33,9 @@ public:
 
     explicit vector(const Allocator& allocator = Allocator()) : size_(0), capacity_(0), data_(nullptr), alloc(allocator) {}
 
-    vector(size_type size, const T& value = T(), const Allocator& allocator = Allocator()) : size_(size), capacity_(0), data_(nullptr), alloc(allocator) {
+    vector(size_type size, const T& value = T(), const Allocator& allocator = Allocator()) : size_(0), capacity_(0), data_(nullptr), alloc(allocator) {
         ResizeArray(size);
-
+        size_ = size;
         for (size_type i = 0; i < size; ++i) {
             traits_t::construct(alloc, data_ + i, value);
         }
@@ -88,6 +88,7 @@ public:
 
         size_ = other.size();
         capacity_ = other.capacity();
+        alloc = other.alloc;
 
         data_ = traits_t::allocate(alloc, capacity_);
         for (size_type i = 0; i < size_; ++i) {
@@ -224,15 +225,15 @@ public:
 
     // Capacity
 
-    bool empty() const {
+    bool empty() const noexcept {
         return size_ == 0;
     }
 
-    size_type size() const {
+    size_type size() const noexcept {
         return size_;
     }
 
-    size_type max_size() const {
+    size_type max_size() const noexcept {
         return std::numeric_limits<difference_type>::max();
     }
 
@@ -248,7 +249,7 @@ public:
         ResizeArray(new_cap);
     }
 
-    size_type capacity() const {
+    size_type capacity() const noexcept {
         return capacity_;
     }
 
